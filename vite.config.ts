@@ -10,7 +10,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: '罗盘 PWA',
+        name: '罗盘',
         short_name: '罗盘',
         description: 'iOS 风水罗盘照片叠加工具',
         theme_color: '#1a1a1a',
@@ -26,4 +26,8 @@ export default defineConfig({
       },
     }),
   ],
+  base: '/luopan/',           // ⭐ 关键：仓库名作为路径前缀
+  build: {
+    outDir: 'dist',
+  }
 })
