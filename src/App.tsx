@@ -1,36 +1,35 @@
 import { useState, useRef, useCallback } from 'react'
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
+import { Settings } from 'lucide-react'
 import PhotoPicker from './components/PhotoPicker'
 import Compass from './components/Compass'
 import Controls from './components/Controls'
-import { useCompassDrag } from './hooks/useCompassDrag'
+import { useCompassGesture } from './hooks/useCompassGesture'
 import { exportImage } from './utils/exportImage'
 
 export default function App() {
   const [photo, setPhoto] = useState<string | null>(null)
-  const [photoSize, setPhotoSize] = useState({ width: 0, height: 0 })
+  const [photoSize, setPhotoSize] = useState({ width: 0, height: 0, cssWidth: 0, cssHeight: 0 })
   const [photoRotation, setPhotoRotation] = useState(0)
   const [photoScale, setPhotoScale] = useState(1)
   const [compassX, setCompassX] = useState(0)
   const [compassY, setCompassY] = useState(0)
   const [compassRotation, setCompassRotation] = useState(0)
-  const [compassScale, setCompassScale] = useState(1)
+  const [compassScale, setCompassScale] = useState(0.5)
   const [compassOpacity, setCompassOpacity] = useState(0.85)
-  const [zoomScale, setZoomScale] = useState(1)
+  const [controlsVisible, setControlsVisible] = useState(true)
 
   const compassRef = useRef<HTMLDivElement>(null)
 
-  const handlePhotoSelect = (dataUrl: string, width: number, height: number) => {
+  const handlePhotoSelect = (dataUrl: string, naturalWidth: number, naturalHeight: number, cssWidth: number, cssHeight: number) => {
     setPhoto(dataUrl)
-    setPhotoSize({ width, height })
+    setPhotoSize({ width: naturalWidth, height: naturalHeight, cssWidth, cssHeight })
     setPhotoRotation(0)
     setPhotoScale(1)
     setCompassX(0)
     setCompassY(0)
     setCompassRotation(0)
-    setCompassScale(1)
+    setCompassScale(0.5)
     setCompassOpacity(0.85)
-    setZoomScale(1)
   }
 
   const handleCompassChange = useCallback((x: number, y: number) => {
@@ -38,12 +37,30 @@ export default function App() {
     setCompassY(y)
   }, [])
 
-  const { handlePointerDown, handlePointerMove, handlePointerUp } = useCompassDrag(
+  const handleCompassRotationChange = useCallback((rotation: number) => {
+    setCompassRotation(rotation)
+  }, [])
+
+  const handleCompassScaleChange = useCallback((scale: number) => {
+    setCompassScale(scale)
+  }, [])
+
+  const {
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useCompassGesture({
     compassX,
     compassY,
-    zoomScale,
-    handleCompassChange,
-  )
+    compassRotation,
+    compassScale,
+    onPositionChange: handleCompassChange,
+    onRotationChange: handleCompassRotationChange,
+    onScaleChange: handleCompassScaleChange,
+  })
 
   const handleExport = async () => {
     if (!photo || !compassRef.current) return
@@ -55,6 +72,8 @@ export default function App() {
       photoSrc: photo,
       photoWidth: photoSize.width,
       photoHeight: photoSize.height,
+      photoCssWidth: photoSize.cssWidth,
+      photoCssHeight: photoSize.cssHeight,
       photoRotation,
       photoScale,
       compassSvgString: svgString,
@@ -86,48 +105,48 @@ export default function App() {
       ) : (
         <>
           <div className="flex-1 relative overflow-hidden">
-            <TransformWrapper
-              initialScale={1}
-              minScale={0.2}
-              maxScale={6}
-              centerOnInit
-              onTransform={(ref) => setZoomScale(ref.state.scale)}
-            >
-              <TransformComponent
-                wrapperStyle={{ width: '100%', height: '100%' }}
-                contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            {/* Photo layer - 使用 CSS 尺寸显示 */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div
+                className="relative"
+                style={{ width: photoSize.cssWidth, height: photoSize.cssHeight }}
               >
-                <div className="relative" style={{ width: photoSize.width, height: photoSize.height }}>
-                  {/* Photo layer */}
-                  <img
-                    src={photo}
-                    alt="底图"
-                    className="absolute inset-0 w-full h-full object-contain"
-                    style={{
-                      transform: `rotate(${photoRotation}deg) scale(${photoScale})`,
-                      transformOrigin: 'center center',
-                    }}
-                    draggable={false}
-                  />
-                  {/* Compass overlay */}
-                  <div
-                    ref={compassRef}
-                    className="absolute touch-none cursor-move"
-                    style={{
-                      left: `calc(50% + ${compassX}px)`,
-                      top: `calc(50% + ${compassY}px)`,
-                      transform: `translate(-50%, -50%) rotate(${compassRotation}deg) scale(${compassScale})`,
-                      opacity: compassOpacity,
-                    }}
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
-                  >
-                    <Compass />
-                  </div>
-                </div>
-              </TransformComponent>
-            </TransformWrapper>
+                <img
+                  src={photo}
+                  alt="底图"
+                  className="absolute inset-0 w-full h-full object-contain"
+                  style={{
+                    transform: `rotate(${photoRotation}deg) scale(${photoScale})`,
+                    transformOrigin: 'center center',
+                  }}
+                  draggable={false}
+                />
+              </div>
+            </div>
+
+            {/* Compass overlay - 在 TransformWrapper 之外，独立接收触摸事件 */}
+            <div
+              ref={compassRef}
+              className="absolute cursor-move"
+              style={{
+                left: `calc(50% + ${compassX}px)`,
+                top: `calc(50% + ${compassY}px)`,
+                width: '600px',
+                height: '600px',
+                transform: `translate(-50%, -50%) rotate(${compassRotation}deg) scale(${compassScale})`,
+                opacity: compassOpacity,
+                touchAction: 'none',
+                zIndex: 10,
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+            >
+              <Compass />
+            </div>
 
             {/* Top bar */}
             <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 pt-[env(safe-area-inset-top)]">
@@ -135,7 +154,20 @@ export default function App() {
             </div>
           </div>
 
+          {/* Show panel button - only visible when panel is hidden */}
+          <button
+            type="button"
+            onClick={() => setControlsVisible(true)}
+            className={`absolute right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 p-3 rounded-full bg-neutral-800/90 backdrop-blur-sm border border-neutral-700 text-amber-500 shadow-lg transition-all duration-300 ${
+              controlsVisible ? 'opacity-0 pointer-events-none translate-y-4' : 'opacity-100 translate-y-0'
+            }`}
+            aria-label="显示设置面板"
+          >
+            <Settings size={24} strokeWidth={2} />
+          </button>
+
           <Controls
+            onToggleVisible={() => setControlsVisible(!controlsVisible)}
             photoRotation={photoRotation}
             photoScale={photoScale}
             compassRotation={compassRotation}
@@ -148,6 +180,7 @@ export default function App() {
             onCompassOpacityChange={setCompassOpacity}
             onExport={handleExport}
             hasPhoto={!!photo}
+            visible={controlsVisible}
           />
         </>
       )}

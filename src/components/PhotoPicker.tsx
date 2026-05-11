@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { ImagePlus } from 'lucide-react'
 
 interface PhotoPickerProps {
-  onPhotoSelect: (dataUrl: string, width: number, height: number) => void
+  onPhotoSelect: (dataUrl: string, naturalWidth: number, naturalHeight: number, cssWidth: number, cssHeight: number) => void
 }
 
 export default function PhotoPicker({ onPhotoSelect }: PhotoPickerProps) {
@@ -17,7 +17,25 @@ export default function PhotoPicker({ onPhotoSelect }: PhotoPickerProps) {
       const dataUrl = reader.result as string
       const img = new Image()
       img.onload = () => {
-        onPhotoSelect(dataUrl, img.naturalWidth, img.naturalHeight)
+        // 计算 CSS 显示尺寸：图片按 object-contain 显示，适应屏幕
+        const screenWidth = window.innerWidth
+        const screenHeight = window.innerHeight - 100 // 预留控制面板空间
+        const imgRatio = img.naturalWidth / img.naturalHeight
+        const screenRatio = screenWidth / screenHeight
+
+        let cssWidth: number
+        let cssHeight: number
+        if (imgRatio > screenRatio) {
+          // 图片更宽，以宽度为基准
+          cssWidth = screenWidth
+          cssHeight = screenWidth / imgRatio
+        } else {
+          // 图片更高，以高度为基准
+          cssHeight = screenHeight
+          cssWidth = screenHeight * imgRatio
+        }
+
+        onPhotoSelect(dataUrl, img.naturalWidth, img.naturalHeight, cssWidth, cssHeight)
       }
       img.src = dataUrl
     }

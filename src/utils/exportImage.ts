@@ -2,6 +2,8 @@ interface ExportParams {
   photoSrc: string
   photoWidth: number
   photoHeight: number
+  photoCssWidth: number
+  photoCssHeight: number
   photoRotation: number
   photoScale: number
   compassSvgString: string
@@ -19,6 +21,8 @@ export async function exportImage(params: ExportParams): Promise<string> {
     photoSrc,
     photoWidth,
     photoHeight,
+    photoCssWidth,
+    photoCssHeight,
     photoRotation,
     photoScale,
     compassSvgString,
@@ -31,6 +35,11 @@ export async function exportImage(params: ExportParams): Promise<string> {
     compassOpacity,
   } = params
 
+  // 计算 CSS 像素与实际像素的比例
+  const scaleX = photoWidth / photoCssWidth
+  const scaleY = photoHeight / photoCssHeight
+
+  // 使用实际像素尺寸创建 canvas
   const canvas = document.createElement('canvas')
   canvas.width = photoWidth
   canvas.height = photoHeight
@@ -39,7 +48,7 @@ export async function exportImage(params: ExportParams): Promise<string> {
   // Load photo
   const photoImg = await loadImage(photoSrc)
 
-  // Draw photo with transform
+  // Draw photo with transform (居中)
   ctx.save()
   ctx.translate(photoWidth / 2, photoHeight / 2)
   ctx.rotate((photoRotation * Math.PI) / 180)
@@ -54,14 +63,17 @@ export async function exportImage(params: ExportParams): Promise<string> {
   URL.revokeObjectURL(compassUrl)
 
   // Draw compass with transform
+  // 将 CSS 像素的罗盘位置和大小转换为实际像素
   ctx.save()
   ctx.globalAlpha = compassOpacity
-  const cx = photoWidth / 2 + compassX
-  const cy = photoHeight / 2 + compassY
+  const cx = photoWidth / 2 + compassX * scaleX
+  const cy = photoHeight / 2 + compassY * scaleY
   ctx.translate(cx, cy)
   ctx.rotate((compassRotation * Math.PI) / 180)
-  ctx.scale(compassScale, compassScale)
-  ctx.drawImage(compassImg, -compassWidth / 2, -compassHeight / 2)
+  // 罗盘大小也按比例缩放
+  const drawWidth = compassWidth * compassScale * scaleX
+  const drawHeight = compassHeight * compassScale * scaleY
+  ctx.drawImage(compassImg, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
   ctx.restore()
 
   return canvas.toDataURL('image/png')
