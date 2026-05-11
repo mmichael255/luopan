@@ -17,16 +17,16 @@ export default defineConfig({
         background_color: '#1a1a1a',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: '/luopan/',           // ⭐ 修正
+        start_url: '/luopan/',       // ⭐ 修正
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/luopan/icon-192.png', sizes: '192x192', type: 'image/png' },   // ⭐ 修正
+          { src: '/luopan/icon-512.png', sizes: '512x512', type: 'image/png' },     // ⭐ 修正
         ],
       },
     }),
   ],
-  base: '/luopan/',           // ⭐ 关键：仓库名作为路径前缀
+  base: '/luopan/',
   build: {
     outDir: 'dist',
   }
