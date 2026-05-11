@@ -122,7 +122,7 @@ export function useCompassGesture({
 
         // 计算缩放
         const scaleRatio = currentDistance / pinchState.current.startDistance
-        const newScale = Math.max(0.5, Math.min(3, pinchState.current.initialScale * scaleRatio))
+        const newScale = Math.max(0.1, Math.min(3, pinchState.current.initialScale * scaleRatio))
 
         // 计算旋转
         const angleDiff = currentAngle - pinchState.current.startAngle
