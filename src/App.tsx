@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { Settings, X, Share2, Download } from 'lucide-react'
 import PhotoPicker from './components/PhotoPicker'
 import Compass from './components/Compass'
@@ -22,6 +22,7 @@ export default function App() {
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [exportedImage, setExportedImage] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const compassRef = useRef<HTMLDivElement>(null)
 
@@ -117,34 +118,67 @@ export default function App() {
     try {
       const response = await fetch(exportedImage)
       const blob = await response.blob()
-      const file = new File([blob], `luopan_${Date.now()}.png`, { type: 'image/png' })
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+      const file = new File([blob], `luopan_${timestamp}.png`, { type: 'image/png' })
 
-      if (navigator.share && navigator.canShare({ files: [file] })) {
+      const canShare = navigator.canShare && navigator.canShare({ files: [file] })
+
+      if (navigator.share && canShare) {
         await navigator.share({
           files: [file],
           title: '风水罗盘',
-          text: '分享罗盘图片',
+          text: '罗盘图片',
         })
       } else {
-        // 降级：直接下载
-        const a = document.createElement('a')
-        a.href = exportedImage
-        a.download = `luopan_${Date.now()}.png`
-        a.click()
+        // 不支持分享：显示提示
+        alert('您的浏览器不支持直接分享，请长按上方图片保存到相册')
       }
     } catch (err) {
-      // 用户取消分享或分享失败，静默处理
-      console.log('Share cancelled or failed:', err)
+      // 区分用户取消和真正错误
+      if (err instanceof Error && err.name === 'AbortError') {
+        // 用户取消或关闭分享面板，完全静默
+        return
+      }
+      // 其他错误静默处理，不打断用户
+      console.log('Share failed:', err)
     }
   }
 
   const handleDownload = () => {
     if (!exportedImage) return
-    const a = document.createElement('a')
-    a.href = exportedImage
-    a.download = `luopan_${Date.now()}.png`
-    a.click()
+    try {
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+      const a = document.createElement('a')
+      a.href = exportedImage
+      a.download = `luopan_${timestamp}.png`
+      a.click()
+      showToast('图片已开始下载', 'success')
+    } catch {
+      showToast('下载失败，请长按图片保存', 'error')
+    }
   }
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 2500)
+  }
+
+  // 检测是否为 iOS 设备
+  const isIOS = useMemo(() => {
+    const userAgent = navigator.userAgent.toLowerCase()
+    return /iphone|ipad|ipod/.test(userAgent)
+  }, [])
+
+  // 检测是否支持文件分享
+  const canShareFiles = useMemo(() => {
+    if (!navigator.share || !navigator.canShare) return false
+    try {
+      const testFile = new File([''], 'test.png', { type: 'image/png' })
+      return navigator.canShare({ files: [testFile] })
+    } catch {
+      return false
+    }
+  }, [])
 
   return (
     <div className="h-full flex flex-col relative overflow-hidden bg-black">
@@ -272,27 +306,52 @@ export default function App() {
               {/* 底部操作栏 */}
               <div className="px-4 py-4 pb-[env(safe-area-inset-bottom)] space-y-3 bg-neutral-900/80 backdrop-blur-xl border-t border-neutral-800">
                 <p className="text-center text-neutral-400 text-sm">
-                  长按图片可直接保存到相册
+                  {isIOS
+                    ? '点击"分享"从系统菜单保存，或长按图片选择"存储图像"'
+                    : canShareFiles
+                      ? '点击保存下载，或使用分享发送给其他应用'
+                      : '点击保存下载图片'}
                 </p>
                 <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-neutral-700 px-4 py-3.5 text-white font-medium active:bg-neutral-600 active:scale-[0.98] transition-all"
-                  >
-                    <Share2 size={18} strokeWidth={2} />
-                    分享
-                  </button>
+                  {/* 保存按钮 - 始终显示 */}
                   <button
                     type="button"
                     onClick={handleDownload}
                     className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-amber-500 to-amber-600 px-4 py-3.5 text-white font-medium shadow-lg shadow-amber-900/30 active:from-amber-600 active:to-amber-700 active:scale-[0.98] transition-all"
                   >
                     <Download size={18} strokeWidth={2} />
-                    保存图片
+                    {isIOS ? '保存到相册' : '保存图片'}
                   </button>
+
+                  {/* 分享按钮 - 仅当支持分享时显示 */}
+                  {canShareFiles && (
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-neutral-700 px-4 py-3.5 text-white font-medium active:bg-neutral-600 active:scale-[0.98] transition-all"
+                      title="分享到其他应用"
+                    >
+                      <Share2 size={18} strokeWidth={2} />
+                      分享
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Toast 提示 */}
+              {toast && (
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50">
+                  <div
+                    className={`px-4 py-2.5 rounded-full text-sm font-medium shadow-lg backdrop-blur-sm transition-all ${
+                      toast.type === 'success'
+                        ? 'bg-green-500/90 text-white'
+                        : 'bg-red-500/90 text-white'
+                    }`}
+                  >
+                    {toast.message}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
