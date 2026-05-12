@@ -1,4 +1,5 @@
-import { RotateCcw, Download, Minus, Plus, X } from "lucide-react";
+import { RotateCcw, Download, Minus, Plus, X, Loader2 } from "lucide-react";
+import type { ExportProgress } from "../utils/exportImage";
 
 interface ControlsProps {
   photoRotation: number;
@@ -15,6 +16,8 @@ interface ControlsProps {
   onToggleVisible: () => void;
   hasPhoto: boolean;
   visible: boolean;
+  isExporting?: boolean;
+  exportProgress?: ExportProgress | null;
 }
 
 function Slider({
@@ -105,6 +108,8 @@ export default function Controls({
   onToggleVisible,
   hasPhoto,
   visible,
+  isExporting = false,
+  exportProgress = null,
 }: ControlsProps) {
   return (
     <div
@@ -186,12 +191,23 @@ export default function Controls({
         {/* Export */}
         <button
           type="button"
-          disabled={!hasPhoto}
+          disabled={!hasPhoto || isExporting}
           onClick={onExport}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 px-4 py-4 text-white font-semibold shadow-lg shadow-amber-900/30 active:scale-[0.98] active:from-amber-600 active:to-amber-700 transition-all disabled:opacity-40 disabled:active:scale-100"
+          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 px-4 py-4 text-white font-semibold shadow-lg shadow-amber-900/30 active:scale-[0.98] active:from-amber-600 active:to-amber-700 transition-all disabled:opacity-60 disabled:active:scale-100"
         >
-          <Download size={20} strokeWidth={2} />
-          导出图片
+          {isExporting ? (
+            <>
+              <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+              {exportProgress?.status === 'loading'
+                ? '加载中...'
+                : `导出中 ${exportProgress?.progress ?? 0}%`}
+            </>
+          ) : (
+            <>
+              <Download size={20} strokeWidth={2} />
+              导出图片
+            </>
+          )}
         </button>
       </div>
     </div>
