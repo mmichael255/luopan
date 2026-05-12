@@ -29,5 +29,6 @@ export default defineConfig({
   base: '/luopan/',
   build: {
     outDir: 'dist',
+    emptyOutDir: true,
   }
 })
